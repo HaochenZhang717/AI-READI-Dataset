@@ -1,7 +1,7 @@
 import os
+import json
 import pandas as pd
 from tqdm import tqdm
-import json
 
 
 def load_blood_glucose_json(path: str) -> pd.DataFrame:
@@ -12,12 +12,12 @@ def load_blood_glucose_json(path: str) -> pd.DataFrame:
         - time_utc (datetime64[ns, UTC])
         - time_local (datetime64[ns, tz], optional)
         - glucose (float)
-        - unit (str)
-        - event_type (str)
-        - source_device_id (str)
-        - transmitter_id (str)
-        - transmitter_time (int)
-        - patient_id (str)
+        - unit (string)
+        - event_type (string)
+        - source_device_id (string)
+        - transmitter_id (string)
+        - transmitter_time (Int64)
+        - patient_id (string)
     """
     with open(path, "r") as f:
         data = json.load(f)
@@ -29,7 +29,7 @@ def load_blood_glucose_json(path: str) -> pd.DataFrame:
     timezone = header.get("timezone", None)
 
     records = body.get("cgm", [])
-    if len(records) == 0:
+    if not records:
         return pd.DataFrame()
 
     rows = []
@@ -43,35 +43,35 @@ def load_blood_glucose_json(path: str) -> pd.DataFrame:
 
         transmitter_time_val = r.get("transmitter_time", {}).get("value", None)
 
-        rows.append({
-            "time": t,
-            "glucose": glucose_val,
-            "unit": glucose_unit,
-            "event_type": r.get("event_type", None),
-            "source_device_id": r.get("source_device_id", None),
-            "transmitter_id": r.get("transmitter_id", None),
-            "transmitter_time": transmitter_time_val,
-            "patient_id": patient_id,
-        })
+        rows.append(
+            {
+                "time": t,
+                "glucose": glucose_val,
+                "unit": glucose_unit,
+                "event_type": r.get("event_type", None),
+                "source_device_id": r.get("source_device_id", None),
+                "transmitter_id": r.get("transmitter_id", None),
+                "transmitter_time": transmitter_time_val,
+                "patient_id": patient_id,
+            }
+        )
 
     df = pd.DataFrame(rows)
 
-    # parse datetime as UTC
-    df["time_utc"] = pd.to_datetime(df["time"], utc=True, errors="coerce")
+    # Parse datetime as UTC (ISO8601 is typical for Open mHealth timestamps)
+    df["time_utc"] = pd.to_datetime(df["time"], format="ISO8601", utc=True, errors="coerce")
     df = df.drop(columns=["time"])
 
-    # drop invalid rows
+    # Ensure glucose numeric
+    df["glucose"] = pd.to_numeric(df["glucose"], errors="coerce")
+
+    # Drop invalid rows
     df = df.dropna(subset=["time_utc", "glucose"])
 
-    # ensure glucose numeric
-    df["glucose"] = pd.to_numeric(df["glucose"], errors="coerce")
-    df = df.dropna(subset=["glucose"])
+    # Sort and drop duplicates (keep last)
+    df = df.sort_values("time_utc").drop_duplicates(subset=["time_utc"], keep="last").reset_index(drop=True)
 
-    # sort and drop duplicates
-    df = df.sort_values("time_utc").reset_index(drop=True)
-    df = df.drop_duplicates(subset=["time_utc"], keep="last").reset_index(drop=True)
-
-    # convert timezone if available
+    # Convert timezone if available
     if timezone is not None:
         tz_map = {
             "pst": "US/Pacific",
@@ -83,40 +83,54 @@ def load_blood_glucose_json(path: str) -> pd.DataFrame:
             "mst": "US/Mountain",
             "mdt": "US/Mountain",
         }
-        tz = tz_map.get(timezone.lower(), None)
+        tz = tz_map.get(str(timezone).lower(), None)
         if tz is not None:
             df["time_local"] = df["time_utc"].dt.tz_convert(tz)
 
-    return df
+    # ---- FIX FOR PARQUET (pyarrow) ----
+    # Force id-like / categorical columns to pandas "string" dtype to avoid mixed object types
+    for col in ["unit", "event_type", "source_device_id", "transmitter_id", "patient_id"]:
+        if col in df.columns:
+            df[col] = df[col].astype("string")
 
+    # transmitter_time: keep as nullable integer if possible
+    if "transmitter_time" in df.columns:
+        df["transmitter_time"] = pd.to_numeric(df["transmitter_time"], errors="coerce").astype("Int64")
+
+    return df
 
 
 input_dir = "/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/wearable_blood_glucose/continuous_glucose_monitoring/dexcom_g6"
 output_path = "/playpen/haochenz/AI-READI/all_glucose.parquet"
 
 dfs = []
+bad_files = 0
 
-for root, dirs, files in os.walk(input_dir):
+for root, _, files in os.walk(input_dir):
     for file in tqdm(files):
         if file.endswith(".json"):
             json_path = os.path.join(root, file)
-
             try:
                 df = load_blood_glucose_json(json_path)
-
-                if len(df) == 0:
-                    continue
-
-                dfs.append(df)
-
+                if not df.empty:
+                    dfs.append(df)
             except Exception as e:
-                print(f"Error processing {json_path}: {e}")
+                bad_files += 1
+                print(f"[ERROR] {json_path}: {e}")
 
-# 合并
+if len(dfs) == 0:
+    raise RuntimeError("No valid CGM JSON files were loaded. Check input_dir.")
+
 all_df = pd.concat(dfs, ignore_index=True)
 
-# 保存 parquet
+# Final safety: enforce string dtype again (in case concat introduced object)
+for col in ["unit", "event_type", "source_device_id", "transmitter_id", "patient_id"]:
+    if col in all_df.columns:
+        all_df[col] = all_df[col].astype("string")
+
+# Save parquet (pyarrow engine is default if installed)
 all_df.to_parquet(output_path, index=False)
 
 print("Saved:", output_path)
 print("Total rows:", len(all_df))
+print("Bad files:", bad_files)

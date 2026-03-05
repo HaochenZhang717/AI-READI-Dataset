@@ -1,8 +1,4 @@
-import pandas as pd
-import json
-import pandas as pd
-
-
+import os
 import json
 import pandas as pd
 import numpy as np
@@ -111,14 +107,31 @@ def load_blood_glucose_json(path: str) -> dict:
 
 
 def save_to_parquet(split_ids, save_path):
+
     result_list = []
+    exist_count = 0
+    missing_count = 0
+
     for split_id in tqdm(split_ids):
+
         blood_glucose_file_path = f"/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/wearable_blood_glucose/continuous_glucose_monitoring/dexcom_g6/{split_id}/{split_id}_DEX.json"
+
+        # check file existence
+        if not os.path.exists(blood_glucose_file_path):
+            missing_count += 1
+            continue
+
+        exist_count += 1
+
         glucose = load_blood_glucose_json(blood_glucose_file_path)
         result_list.append(glucose)
+
+    print(f"Existing files: {exist_count}")
+    print(f"Missing files: {missing_count}")
+
     df = pd.DataFrame(result_list)
-    # df.to_parquet("/playpen/haochenz/AI-READI/glucose_train.parquet")
     df.to_parquet(save_path)
+
 
 if __name__ == "__main__":
     participants_path = "participants.tsv"
@@ -133,11 +146,12 @@ if __name__ == "__main__":
     test_ids  = df.loc[df["recommended_split"] == "test", "person_id"].tolist()
 
     print("train:", len(train_ids))
-    print("val:", len(val_ids))
-    print("test:", len(test_ids))
-
     save_to_parquet(train_ids, "/playpen/haochenz/AI-READI/glucose_train.parquet")
+
+    print("val:", len(val_ids))
     save_to_parquet(val_ids, "/playpen/haochenz/AI-READI/glucose_valid.parquet")
+
+    print("test:", len(test_ids))
     save_to_parquet(test_ids, "/playpen/haochenz/AI-READI/glucose_test.parquet")
 
 

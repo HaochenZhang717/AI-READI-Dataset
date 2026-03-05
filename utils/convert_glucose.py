@@ -100,51 +100,52 @@ def load_blood_glucose_json(path: str) -> pd.DataFrame:
     return df
 
 
-input_dir = "/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/wearable_blood_glucose/continuous_glucose_monitoring/dexcom_g6"
-output_path = "/playpen/haochenz/AI-READI/all_glucose.parquet"
-
-dfs = []
-bad_files = 0
-
-for root, _, files in os.walk(input_dir):
-    for file in tqdm(files):
-        if file.endswith(".json"):
-            json_path = os.path.join(root, file)
-            try:
-                df = load_blood_glucose_json(json_path)
-                if not df.empty:
-                    dfs.append(df)
-            except Exception as e:
-                bad_files += 1
-                print(f"[ERROR] {json_path}: {e}")
-
-if len(dfs) == 0:
-    raise RuntimeError("No valid CGM JSON files were loaded. Check input_dir.")
-
-all_df = pd.concat(dfs, ignore_index=True)
-
-# Final safety: enforce string dtype again (in case concat introduced object)
-for col in ["unit", "event_type", "source_device_id", "transmitter_id", "patient_id"]:
-    if col in all_df.columns:
-        all_df[col] = all_df[col].astype("string")
-
-# Save parquet (pyarrow engine is default if installed)
-all_df.to_parquet(output_path, index=False)
-
-print("Saved:", output_path)
-print("Total rows:", len(all_df))
-print("Bad files:", bad_files)
+# input_dir = "/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/wearable_blood_glucose/continuous_glucose_monitoring/dexcom_g6"
+# output_path = "/playpen/haochenz/AI-READI/all_glucose.parquet"
+#
+# dfs = []
+# bad_files = 0
+#
+# for root, _, files in os.walk(input_dir):
+#     for file in tqdm(files):
+#         if file.endswith(".json"):
+#             json_path = os.path.join(root, file)
+#             try:
+#                 df = load_blood_glucose_json(json_path)
+#                 if not df.empty:
+#                     dfs.append(df)
+#             except Exception as e:
+#                 bad_files += 1
+#                 print(f"[ERROR] {json_path}: {e}")
+#
+# if len(dfs) == 0:
+#     raise RuntimeError("No valid CGM JSON files were loaded. Check input_dir.")
+#
+# all_df = pd.concat(dfs, ignore_index=True)
+#
+# # Final safety: enforce string dtype again (in case concat introduced object)
+# for col in ["unit", "event_type", "source_device_id", "transmitter_id", "patient_id"]:
+#     if col in all_df.columns:
+#         all_df[col] = all_df[col].astype("string")
+#
+# # Save parquet (pyarrow engine is default if installed)
+# all_df.to_parquet(output_path, index=False)
+#
+# print("Saved:", output_path)
+# print("Total rows:", len(all_df))
+# print("Bad files:", bad_files)
 
 
 # ================================
 # Load participants.tsv for split
 # ================================
-participants_path = "/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/participants.tsv"
+# participants_path = "/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/participants.tsv"
+participants_path = "participants.tsv"
 participants = pd.read_csv(participants_path, sep="\t")
 
 # 确保类型一致
 participants["person_id"] = participants["person_id"].astype("string")
-all_df["patient_id"] = all_df["patient_id"].astype("string")
+# all_df["patient_id"] = all_df["patient_id"].astype("string")
 
 # 建立 patient → split 映射
 split_map = dict(

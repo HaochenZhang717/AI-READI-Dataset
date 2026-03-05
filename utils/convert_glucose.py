@@ -134,3 +134,49 @@ all_df.to_parquet(output_path, index=False)
 print("Saved:", output_path)
 print("Total rows:", len(all_df))
 print("Bad files:", bad_files)
+
+
+# ================================
+# Load participants.tsv for split
+# ================================
+participants_path = "/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/participants.tsv"
+participants = pd.read_csv(participants_path, sep="\t")
+
+# 确保类型一致
+participants["person_id"] = participants["person_id"].astype("string")
+all_df["patient_id"] = all_df["patient_id"].astype("string")
+
+# 建立 patient → split 映射
+split_map = dict(
+    zip(participants["person_id"], participants["recommended_split"])
+)
+
+# 添加 split 列
+all_df["split"] = all_df["patient_id"].map(split_map)
+
+# 检查有没有 mapping 不到的
+missing = all_df["split"].isna().sum()
+print("Rows with missing split:", missing)
+
+
+train_df = all_df[all_df["split"] == "train"]
+val_df = all_df[all_df["split"] == "val"]
+test_df = all_df[all_df["split"] == "test"]
+
+print("Train rows:", len(train_df))
+print("Val rows:", len(val_df))
+print("Test rows:", len(test_df))
+
+
+train_path = "/playpen/haochenz/AI-READI/glucose_train.parquet"
+val_path = "/playpen/haochenz/AI-READI/glucose_val.parquet"
+test_path = "/playpen/haochenz/AI-READI/glucose_test.parquet"
+
+train_df.to_parquet(train_path, index=False)
+val_df.to_parquet(val_path, index=False)
+test_df.to_parquet(test_path, index=False)
+
+print("Saved:")
+print(train_path)
+print(val_path)
+print(test_path)

@@ -190,10 +190,11 @@ class AIREADIDataset(Dataset):
 
 if __name__ == "__main__":
     # scp -r haochenz@unites1.cs.unc.edu:/playpen/haochenz/AI-READI /Users/zhc/Documents
-
+    # scp -r haochenz@unites1.cs.unc.edu:/playpen/haochenz/AI-READI/retinal_photography/cfp/topcon_maestro2/7707 /Users/zhc/Documents
     # df = pd.read_parquet("/Users/zhc/Documents/AI-READI/glucose_train.parquet")
     # data = df.to_dict("records")
 
     df = pd.read_csv("participants.tsv", sep="\t")
     # patient_id = 1001
     # meta = df.query(f"person_id == {patient_id}")
+    #  scp -r haochenz@unites6.cs.unc.edu:/playpen-shared/laura/unlearning/VLGuard/train_images/train/HOD/img_hod_000036.jpg /Users/zhc/Documents

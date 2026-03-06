@@ -79,6 +79,6 @@ def convert_dataset_parallel(root_dir, save_dir, num_workers=None):
 if __name__ == "__main__":
 
     root_dir = "/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/retinal_photography/cfp/topcon_maestro2/"
-    save_dir = "/playpen/haochenz/retinal_photography/cfp/topcon_maestro2/"
+    save_dir = "/playpen/haochenz/AI-READI/retinal_photography/cfp/topcon_maestro2/"
 
     convert_dataset_parallel(root_dir, save_dir)

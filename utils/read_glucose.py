@@ -2,6 +2,7 @@ import os
 import json
 import pandas as pd
 import numpy as np
+from datasets import Dataset
 from tqdm import tqdm
 
 
@@ -132,8 +133,7 @@ def save_to_parquet(split_ids, save_path):
     df = pd.DataFrame(result_list)
     df.to_parquet(save_path)
 
-
-if __name__ == "__main__":
+def save_glucose_to_parquet():
     participants_path = "participants.tsv"
 
     df = pd.read_csv(participants_path, sep="\t")
@@ -142,8 +142,8 @@ if __name__ == "__main__":
     df["person_id"] = df["person_id"].astype(str)
 
     train_ids = df.loc[df["recommended_split"] == "train", "person_id"].tolist()
-    val_ids   = df.loc[df["recommended_split"] == "val", "person_id"].tolist()
-    test_ids  = df.loc[df["recommended_split"] == "test", "person_id"].tolist()
+    val_ids = df.loc[df["recommended_split"] == "val", "person_id"].tolist()
+    test_ids = df.loc[df["recommended_split"] == "test", "person_id"].tolist()
 
     print("train:", len(train_ids))
     save_to_parquet(train_ids, "/playpen/haochenz/AI-READI/glucose_train.parquet")
@@ -154,6 +154,46 @@ if __name__ == "__main__":
     print("test:", len(test_ids))
     save_to_parquet(test_ids, "/playpen/haochenz/AI-READI/glucose_test.parquet")
 
+class AIREADIDataset(Dataset):
+    def __init__(self, split: str, data_path: str):
+        super().__init__()
+        self.split_name = split
+        self.data_path = data_path
+
+        self.load_glucose()
+        self.load_meta_data()
+
+    def load_glucose(self):
+        df = pd.read_parquet(f"{self.data_path}/glucose_{self.split_name}.parquet")
+        data = df.to_dict("records")
+        self.glucose_data = data
+
+    def load_meta_data(self):
+        self.meta_data = pd.read_csv("participants.tsv", sep="\t")
+
+    def __len__(self):
+        return len(self.glucose_data)
+
+    def __getitem__(self, idx):
+        main_data = self.glucose_data[idx]
+
+        patient_id = main_data["patient_id"]
+        time_local = main_data["time_local"]
+        glucose = main_data["glucose"]
+
+        meta = self.meta_data.query(f"person_id == {patient_id}")
+
+        age = meta["age"].item()
+        study_group = meta["study_group"].item()
 
 
 
+if __name__ == "__main__":
+    # scp -r haochenz@unites1.cs.unc.edu:/playpen/haochenz/AI-READI /Users/zhc/Documents
+
+    # df = pd.read_parquet("/Users/zhc/Documents/AI-READI/glucose_train.parquet")
+    # data = df.to_dict("records")
+
+    df = pd.read_csv("participants.tsv", sep="\t")
+    # patient_id = 1001
+    # meta = df.query(f"person_id == {patient_id}")

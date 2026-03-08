@@ -6,27 +6,26 @@ import os
 from multiprocessing import Pool, cpu_count
 
 
+
+
 # def dcm_to_png_worker(args):
-#     """
-#     Worker function for multiprocessing
-#     """
+#
 #     dcm_path, png_path = args
 #
 #     try:
 #         ds = pydicom.dcmread(dcm_path)
 #
-#         img = ds.pixel_array.astype(np.float32)
+#         img = ds.pixel_array
 #
-#         img -= img.min()
-#         if img.max() > 0:
-#             img /= img.max()
-#
-#         img = (img * 255).astype(np.uint8)
-#
-#         if len(img.shape) == 2:
+#         # 如果是 grayscale
+#         if img.ndim == 2:
 #             img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 #
-#         cv2.imwrite(png_path, img)
+#         # 如果是 RGB，需要转 BGR 才能被 cv2 正确保存
+#         elif img.shape[2] == 3:
+#             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+#
+#         cv2.imwrite(png_path, img, [cv2.IMWRITE_PNG_COMPRESSION, 3])
 #
 #     except Exception as e:
 #         print(f"Failed: {dcm_path} | {e}")
@@ -41,15 +40,27 @@ def dcm_to_png_worker(args):
 
         img = ds.pixel_array
 
-        # 如果是 grayscale
+        # grayscale → RGB
         if img.ndim == 2:
             img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
-        # 如果是 RGB，需要转 BGR 才能被 cv2 正确保存
+        # RGB → BGR (cv2)
         elif img.shape[2] == 3:
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
-        cv2.imwrite(png_path, img, [cv2.IMWRITE_PNG_COMPRESSION, 3])
+        # ===== downsample 2x =====
+        h, w = img.shape[:2]
+        img = cv2.resize(
+            img,
+            (w // 2, h // 2),
+            interpolation=cv2.INTER_AREA
+        )
+
+        cv2.imwrite(
+            png_path,
+            img,
+            [cv2.IMWRITE_PNG_COMPRESSION, 3]
+        )
 
     except Exception as e:
         print(f"Failed: {dcm_path} | {e}")

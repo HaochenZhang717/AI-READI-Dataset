@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
     print(img.shape)
 
-    plt.imshow(img, cmap="gray")
+    plt.imshow(img)
     plt.axis("off")
     plt.show()
 

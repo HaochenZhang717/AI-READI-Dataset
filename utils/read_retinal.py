@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 from tqdm import tqdm
 import os
-
+import matplotlib.pyplot as plt
 
 def read_dcm_image(path):
     """
@@ -86,18 +86,18 @@ def convert_dataset(root_dir, save_dir):
 
 
 if __name__ == "__main__":
-    # img, meta = read_dcm_image(
-    #     "/Users/zhc/Downloads/1001_maestro2_3d_macula_oct_cfp_l_2.16.840.1.114517.10.5.1.4.907063120230727165807.2.1.dcm")
-    # # retinal_photography/cfp/topcon_maestro2/
+    img, meta = read_dcm_image(
+        "/Users/zhc/Downloads/1001_maestro2_3d_macula_oct_cfp_l_2.16.840.1.114517.10.5.1.4.907063120230727165807.2.1.dcm")
+    # retinal_photography/cfp/topcon_maestro2/
     # blood_glucose_file_path = f"/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/retinal_photography/cfp/topcon_maestro2/"
-    #
-    # print(img.shape)
-    #
-    # plt.imshow(img, cmap="gray")
-    # plt.axis("off")
-    # plt.show()
 
-    root_dir = "/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/retinal_photography/cfp/topcon_maestro2/"
-    save_dir = "/playpen/haochenz/retinal_photography/cfp/topcon_maestro2/"
+    print(img.shape)
 
-    convert_dataset(root_dir, save_dir)
+    plt.imshow(img, cmap="gray")
+    plt.axis("off")
+    plt.show()
+
+    # root_dir = "/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/retinal_photography/cfp/topcon_maestro2/"
+    # save_dir = "/playpen/haochenz/retinal_photography/cfp/topcon_maestro2/"
+    #
+    # convert_dataset(root_dir, save_dir)

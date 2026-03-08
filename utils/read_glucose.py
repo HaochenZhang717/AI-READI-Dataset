@@ -1,9 +1,11 @@
-import os
 import json
 import pandas as pd
-import numpy as np
 from datasets import Dataset
 from tqdm import tqdm
+from PIL import Image
+import glob
+import os
+import numpy as np
 
 
 def load_blood_glucose_json(path: str) -> dict:
@@ -162,6 +164,7 @@ class AIREADIDataset(Dataset):
 
         self.load_glucose()
         self.load_meta_data()
+        # self.load_retinal()
 
     def load_glucose(self):
         df = pd.read_parquet(f"{self.data_path}/glucose_{self.split_name}.parquet")
@@ -171,20 +174,53 @@ class AIREADIDataset(Dataset):
     def load_meta_data(self):
         self.meta_data = pd.read_csv("participants.tsv", sep="\t")
 
+    # def load_retinal(self):
+    #     retinal_path = f"{self.data_path}/retinal_photography/cfp/topcon_maestro2"
+
     def __len__(self):
         return len(self.glucose_data)
 
     def __getitem__(self, idx):
+        sample= dict()
+
         main_data = self.glucose_data[idx]
 
+        # get glucose data
         patient_id = main_data["patient_id"]
         time_local = main_data["time_local"]
         glucose = main_data["glucose"]
+        sample.update({"time_local": time_local, "glucose": glucose, 'patient_id': patient_id})
 
+        # get meta data
         meta = self.meta_data.query(f"person_id == {patient_id}")
-
         age = meta["age"].item()
         study_group = meta["study_group"].item()
+        sample.update({"age": age, "study_group": study_group})
+
+        # get retinal data
+        # todo: now i only use cfp/topcon_maestro2 data, maybe later I will incorporate more.
+        retinal_path = f"{self.data_path}/retinal_photography/cfp/topcon_maestro2/{patient_id}"
+        retinal_images = []
+
+        order = [
+            "macula_oct_cfp_l",
+            "macula_oct_cfp_r",
+            "wide_oct_cfp_l",
+            "wide_oct_cfp_r",
+        ]
+        files = os.listdir(retinal_path)
+
+        for key in order:
+            file = [f for f in files if key in f][0]
+            path = os.path.join(retinal_path, file)
+
+            img = np.array(Image.open(path))
+            retinal_images.append(img)
+
+        retinal_images = np.stack(retinal_images)
+        sample.update({"retinal_images": retinal_images})
+
+
 
 
 

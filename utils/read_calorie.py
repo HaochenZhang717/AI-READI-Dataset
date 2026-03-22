@@ -108,15 +108,45 @@ def save_calorie_to_parquet(split_ids, save_path):
 
         calorie_file_path = f"/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/wearable_activity_monitor/physical_activity_calorie/garmin_vivosmart5/{split_id}/{split_id}_calorie.json"
 
-        # check file existence
         if not os.path.exists(calorie_file_path):
             missing_count += 1
+
+            # ✅ 构造空样本（关键！！）
+            empty_sample = {
+                "time_utc": np.array([], dtype="datetime64[ns]"),
+                "calorie": np.array([], dtype=np.float32),
+                "unit": np.array([], dtype="str"),
+                "event_type": np.array([], dtype="str"),
+                "source_device_id": np.array([], dtype="str"),
+                "patient_id": np.array([split_id]),  # 保留 id
+                "is_missing": True,  # 🔥 强烈建议加
+            }
+
+            result_list.append(empty_sample)
             continue
 
-        exist_count += 1
-
         calorie = load_calorie_json(calorie_file_path)
+
+        if len(calorie) == 0:
+            missing_count += 1
+
+            empty_sample = {
+                "time_utc": np.array([], dtype="datetime64[ns]"),
+                "calorie": np.array([], dtype=np.float32),
+                "unit": np.array([], dtype="str"),
+                "event_type": np.array([], dtype="str"),
+                "source_device_id": np.array([], dtype="str"),
+                "patient_id": np.array([split_id]),
+                "is_missing": True,
+            }
+
+            result_list.append(empty_sample)
+            continue
+
+        # ✅ 正常数据
+        calorie["is_missing"] = False
         result_list.append(calorie)
+        exist_count += 1
 
     print(f"Existing files: {exist_count}")
     print(f"Missing files: {missing_count}")
@@ -138,14 +168,15 @@ def save_calorie_all():
     test_ids = df.loc[df["recommended_split"] == "test", "person_id"].tolist()
 
     print("train:", len(train_ids))
-    save_calorie_to_parquet(train_ids, "/playpen/haochenz/AI-READI/calorie_train.parquet")
+    save_calorie_to_parquet(train_ids, "/playpen-shared/haochenz/AI-READI/calorie_train.parquet")
 
     print("val:", len(val_ids))
-    save_calorie_to_parquet(val_ids, "/playpen/haochenz/AI-READI/calorie_valid.parquet")
+    save_calorie_to_parquet(val_ids, "/playpen-shared/haochenz/AI-READI/calorie_valid.parquet")
 
     print("test:", len(test_ids))
-    save_calorie_to_parquet(test_ids, "/playpen/haochenz/AI-READI/calorie_test.parquet")
+    save_calorie_to_parquet(test_ids, "/playpen-shared/haochenz/AI-READI/calorie_test.parquet")
 
 
 
 if __name__ == "__main__":
+    save_calorie_all()

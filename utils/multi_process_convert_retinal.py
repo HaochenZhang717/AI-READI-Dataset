@@ -116,3 +116,4 @@ if __name__ == "__main__":
     save_dir = "/playpen/haochenz/AI-READI/retinal_photography/cfp/topcon_maestro2/"
 
     convert_dataset_parallel(root_dir, save_dir)
+

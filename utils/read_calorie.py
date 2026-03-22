@@ -7,10 +7,9 @@ import glob
 import os
 import numpy as np
 
-
-def load_blood_glucose_json(path: str) -> dict:
+def load_calorie_json(path: str) -> dict:
     """
-    Load AI-READI CGM JSON (Dexcom-like) and return a dictionary:
+    Load calorie JSON and return a dictionary:
 
     {
         column_name : np.array(...)
@@ -26,7 +25,7 @@ def load_blood_glucose_json(path: str) -> dict:
     patient_id = header.get("patient_id", header.get("uuid", None))
     timezone = header.get("timezone", None)
 
-    records = body.get("cgm", [])
+    records = body.get("physical_activity_calorie", [])
     if not records:
         return {}
 
@@ -36,45 +35,41 @@ def load_blood_glucose_json(path: str) -> dict:
         time_interval = r.get("effective_time_frame", {}).get("time_interval", {})
         t = time_interval.get("start_date_time", None)
 
-        bg = r.get("blood_glucose", {})
-        glucose_val = bg.get("value", None)
-        glucose_unit = bg.get("unit", None)
-
-        transmitter_time_val = r.get("transmitter_time", {}).get("value", None)
+        cal = r.get("calorie_burned", {})
+        calorie_val = cal.get("value", None)
+        calorie_unit = cal.get("unit", None)
 
         rows.append(
             {
                 "time": t,
-                "glucose": glucose_val,
-                "unit": glucose_unit,
+                "calorie": calorie_val,
+                "unit": calorie_unit,
                 "event_type": r.get("event_type", None),
                 "source_device_id": r.get("source_device_id", None),
-                "transmitter_id": r.get("transmitter_id", None),
-                "transmitter_time": transmitter_time_val,
                 "patient_id": patient_id,
             }
         )
 
     df = pd.DataFrame(rows)
 
-    # Parse datetime as UTC
+    # ===== 时间处理（完全一致）=====
     df["time_utc"] = pd.to_datetime(df["time"], format="ISO8601", utc=True, errors="coerce")
     df = df.drop(columns=["time"])
 
-    # Ensure glucose numeric
-    df["glucose"] = pd.to_numeric(df["glucose"], errors="coerce")
+    breakpoint()
+    # ===== 数值处理 =====
+    df["calorie"] = pd.to_numeric(df["calorie"], errors="coerce")
 
-    # Drop invalid rows
-    df = df.dropna(subset=["time_utc", "glucose"])
+    # ===== 清洗 =====
+    df = df.dropna(subset=["time_utc", "calorie"])
 
-    # Sort and drop duplicates
     df = (
         df.sort_values("time_utc")
         .drop_duplicates(subset=["time_utc"], keep="last")
         .reset_index(drop=True)
     )
 
-    # Convert timezone if available
+    # ===== timezone（完全对齐）=====
     if timezone is not None:
         tz_map = {
             "pst": "US/Pacific",
@@ -92,24 +87,18 @@ def load_blood_glucose_json(path: str) -> dict:
         if tz is not None:
             df["time_local"] = df["time_utc"].dt.tz_convert(tz)
 
-    # Fix string columns
-    for col in ["unit", "event_type", "source_device_id", "transmitter_id", "patient_id"]:
+    # ===== string columns（对齐）=====
+    for col in ["unit", "event_type", "source_device_id", "patient_id"]:
         if col in df.columns:
             df[col] = df[col].astype("string")
 
-    # transmitter_time -> nullable integer
-    if "transmitter_time" in df.columns:
-        df["transmitter_time"] = (
-            pd.to_numeric(df["transmitter_time"], errors="coerce").astype("Int64")
-        )
-
-    # ===== convert dataframe -> dict[column -> np.array] =====
+    # ===== 转 dict =====
     result = {col: df[col].to_numpy() for col in df.columns}
 
     return result
 
 
-def save_to_parquet(split_ids, save_path):
+def save_calorie_to_parquet(split_ids, save_path):
 
     result_list = []
     exist_count = 0
@@ -117,17 +106,17 @@ def save_to_parquet(split_ids, save_path):
 
     for split_id in tqdm(split_ids):
 
-        blood_glucose_file_path = f"/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/wearable_blood_glucose/continuous_glucose_monitoring/dexcom_g6/{split_id}/{split_id}_DEX.json"
+        calorie_file_path = f"/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/wearable_activity_monitor/physical_activity_calorie/garmin_vivosmart5/{split_id}/{split_id}_calorie.json"
 
         # check file existence
-        if not os.path.exists(blood_glucose_file_path):
+        if not os.path.exists(calorie_file_path):
             missing_count += 1
             continue
 
         exist_count += 1
 
-        glucose = load_blood_glucose_json(blood_glucose_file_path)
-        result_list.append(glucose)
+        calorie = load_calorie_json(calorie_file_path)
+        result_list.append(calorie)
 
     print(f"Existing files: {exist_count}")
     print(f"Missing files: {missing_count}")
@@ -136,12 +125,12 @@ def save_to_parquet(split_ids, save_path):
     df.to_parquet(save_path)
 
 
-def save_glucose_to_parquet():
+def save_calorie_all():
+
     participants_path = "participants.tsv"
 
     df = pd.read_csv(participants_path, sep="\t")
 
-    # 确保类型统一
     df["person_id"] = df["person_id"].astype(str)
 
     train_ids = df.loc[df["recommended_split"] == "train", "person_id"].tolist()
@@ -149,22 +138,14 @@ def save_glucose_to_parquet():
     test_ids = df.loc[df["recommended_split"] == "test", "person_id"].tolist()
 
     print("train:", len(train_ids))
-    save_to_parquet(train_ids, "/playpen/haochenz/AI-READI/glucose_train.parquet")
+    save_calorie_to_parquet(train_ids, "/playpen/haochenz/AI-READI/calorie_train.parquet")
 
     print("val:", len(val_ids))
-    save_to_parquet(val_ids, "/playpen/haochenz/AI-READI/glucose_valid.parquet")
+    save_calorie_to_parquet(val_ids, "/playpen/haochenz/AI-READI/calorie_valid.parquet")
 
     print("test:", len(test_ids))
-    save_to_parquet(test_ids, "/playpen/haochenz/AI-READI/glucose_test.parquet")
+    save_calorie_to_parquet(test_ids, "/playpen/haochenz/AI-READI/calorie_test.parquet")
+
 
 
 if __name__ == "__main__":
-    # scp -r haochenz@unites1.cs.unc.edu:/playpen/haochenz/AI-READI /Users/zhc/Documents
-    # scp -r haochenz@unites1.cs.unc.edu:/playpen/haochenz/AI-READI/retinal_photography/cfp/topcon_maestro2/7707 /Users/zhc/Documents
-    # df = pd.read_parquet("/Users/zhc/Documents/AI-READI/glucose_train.parquet")
-    # data = df.to_dict("records")
-
-    df = pd.read_csv("participants.tsv", sep="\t")
-    # patient_id = 1001
-    # meta = df.query(f"person_id == {patient_id}")
-    #  scp -r haochenz@unites6.cs.unc.edu:/playpen-shared/laura/unlearning/VLGuard/train_images/train/HOD/img_hod_000036.jpg /Users/zhc/Documents

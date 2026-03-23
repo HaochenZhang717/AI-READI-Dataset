@@ -51,7 +51,6 @@ def load_calorie_json(path: str, pid: str) -> dict:
         or body.get("activity")
         or []
     )
-    breakpoint()
     # ❗空记录
     if not records:
         return build_empty_sample(pid)
@@ -78,7 +77,7 @@ def load_calorie_json(path: str, pid: str) -> dict:
             "source_device_id": r.get("source_device_id", None),
             "patient_id": patient_id,
         })
-
+    breakpoint()
     # ❗过滤后为空
     if len(rows) == 0:
         return build_empty_sample(pid)

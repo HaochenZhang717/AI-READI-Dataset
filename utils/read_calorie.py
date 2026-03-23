@@ -4,64 +4,99 @@ from tqdm import tqdm
 import os
 import numpy as np
 
-def load_calorie_json(path: str) -> dict:
-    """
-    Load calorie JSON and return a dictionary:
 
-    {
-        column_name : np.array(...)
+# =========================
+# helper：构造空样本
+# =========================
+def build_empty_sample(pid):
+    return {
+        "time_utc": np.array([], dtype="datetime64[ns]"),
+        "calorie": np.array([], dtype=np.float32),
+        "unit": np.array([], dtype="str"),
+        "event_type": np.array([], dtype="str"),
+        "source_device_id": np.array([], dtype="str"),
+        "patient_id": np.array([pid]),
+        "is_missing": True,
     }
+
+
+# =========================
+# parser（核心修复版）
+# =========================
+def load_calorie_json(path: str, pid: str) -> dict:
+    """
+    永远返回一个 dict（即使是空）
     """
 
-    with open(path, "r") as f:
-        data = json.load(f)
+    # ❗文件不存在
+    if not os.path.exists(path):
+        return build_empty_sample(pid)
 
-    header = data.get("header", {})
-    body = data.get("body", {})
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+    except Exception:
+        return build_empty_sample(pid)
 
-    if "1142/1142_calorie.json" in path:
-        breakpoint()
-    print(path)
-    patient_id = header.get("patient_id", header.get("uuid", None))
+    # 🔥 防御式
+    header = data.get("header") or {}
+    body = data.get("body") or {}
+
+    patient_id = header.get("patient_id", header.get("uuid", pid))
     timezone = header.get("timezone", None)
 
-    records = body.get("physical_activity_calorie", [])
+    # 🔥 兼容不同 key（你刚刚那个 activity 就是坑点）
+    records = (
+        body.get("physical_activity_calorie")
+        or body.get("activity")
+        or []
+    )
+
+    # ❗空记录
     if not records:
-        return {}
+        return build_empty_sample(pid)
 
     rows = []
 
     for r in records:
-        time_interval = r.get("effective_time_frame", {}).get("time_interval", {})
-        t = time_interval.get("start_date_time", None)
+        interval = (r.get("effective_time_frame") or {}).get("time_interval") or {}
+        t = interval.get("start_date_time", None)
 
-        cal = r.get("calorie_burned", {})
+        cal = r.get("calorie_burned") or {}
         calorie_val = cal.get("value", None)
         calorie_unit = cal.get("unit", None)
 
-        rows.append(
-            {
-                "time": t,
-                "calorie": calorie_val,
-                "unit": calorie_unit,
-                "event_type": r.get("event_type", None),
-                "source_device_id": r.get("source_device_id", None),
-                "patient_id": patient_id,
-            }
-        )
+        if t is None or calorie_val is None:
+            continue
+
+
+        rows.append({
+            "time": t,
+            "calorie": calorie_val,
+            "unit": calorie_unit,
+            "event_type": r.get("event_type", None),
+            "source_device_id": r.get("source_device_id", None),
+            "patient_id": patient_id,
+        })
+
+    # ❗过滤后为空
+    if len(rows) == 0:
+        return build_empty_sample(pid)
 
     df = pd.DataFrame(rows)
 
-    # ===== 时间处理（完全一致）=====
+    # ===== 时间处理 =====
     df["time_utc"] = pd.to_datetime(df["time"], format="ISO8601", utc=True, errors="coerce")
     df = df.drop(columns=["time"])
 
-    breakpoint()
     # ===== 数值处理 =====
     df["calorie"] = pd.to_numeric(df["calorie"], errors="coerce")
 
     # ===== 清洗 =====
     df = df.dropna(subset=["time_utc", "calorie"])
+
+    if len(df) == 0:
+        return build_empty_sample(pid)
 
     df = (
         df.sort_values("time_utc")
@@ -69,7 +104,7 @@ def load_calorie_json(path: str) -> dict:
         .reset_index(drop=True)
     )
 
-    # ===== timezone（完全对齐）=====
+    # ===== timezone =====
     if timezone is not None:
         tz_map = {
             "pst": "US/Pacific",
@@ -87,17 +122,20 @@ def load_calorie_json(path: str) -> dict:
         if tz is not None:
             df["time_local"] = df["time_utc"].dt.tz_convert(tz)
 
-    # ===== string columns（对齐）=====
+    # ===== string columns =====
     for col in ["unit", "event_type", "source_device_id", "patient_id"]:
         if col in df.columns:
             df[col] = df[col].astype("string")
 
-    # ===== 转 dict =====
     result = {col: df[col].to_numpy() for col in df.columns}
-
+    result["is_missing"] = False
+    breakpoint()
     return result
 
 
+# =========================
+# parquet
+# =========================
 def save_calorie_to_parquet(split_ids, save_path):
 
     result_list = []
@@ -108,45 +146,14 @@ def save_calorie_to_parquet(split_ids, save_path):
 
         calorie_file_path = f"/playpen-shared/mshuang/morris/morris/d9ef6cf1-f6c3-4956-a91e-adf409e105f0/dataset/wearable_activity_monitor/physical_activity_calorie/garmin_vivosmart5/{split_id}/{split_id}_calorie.json"
 
-        if not os.path.exists(calorie_file_path):
+        sample = load_calorie_json(calorie_file_path, split_id)
+
+        if sample["is_missing"]:
             missing_count += 1
+        else:
+            exist_count += 1
 
-            # ✅ 构造空样本（关键！！）
-            empty_sample = {
-                "time_utc": np.array([], dtype="datetime64[ns]"),
-                "calorie": np.array([], dtype=np.float32),
-                "unit": np.array([], dtype="str"),
-                "event_type": np.array([], dtype="str"),
-                "source_device_id": np.array([], dtype="str"),
-                "patient_id": np.array([split_id]),  # 保留 id
-                "is_missing": True,  # 🔥 强烈建议加
-            }
-
-            result_list.append(empty_sample)
-            continue
-
-        calorie = load_calorie_json(calorie_file_path)
-
-        if len(calorie) == 0:
-            missing_count += 1
-
-            empty_sample = {
-                "time_utc": np.array([], dtype="datetime64[ns]"),
-                "calorie": np.array([], dtype=np.float32),
-                "unit": np.array([], dtype="str"),
-                "event_type": np.array([], dtype="str"),
-                "source_device_id": np.array([], dtype="str"),
-                "patient_id": np.array([split_id]),
-                "is_missing": True,
-            }
-
-            result_list.append(empty_sample)
-            continue
-
-        # ✅ 正常数据
-        calorie["is_missing"] = False
-        result_list.append(calorie)
-        exist_count += 1
+        result_list.append(sample)
 
     print(f"Existing files: {exist_count}")
     print(f"Missing files: {missing_count}")
@@ -155,12 +162,14 @@ def save_calorie_to_parquet(split_ids, save_path):
     df.to_parquet(save_path)
 
 
+# =========================
+# main
+# =========================
 def save_calorie_all():
 
     participants_path = "participants.tsv"
 
     df = pd.read_csv(participants_path, sep="\t")
-
     df["person_id"] = df["person_id"].astype(str)
 
     train_ids = df.loc[df["recommended_split"] == "train", "person_id"].tolist()
@@ -175,7 +184,6 @@ def save_calorie_all():
 
     print("test:", len(test_ids))
     save_calorie_to_parquet(test_ids, "/playpen-shared/haochenz/AI-READI/calorie_test.parquet")
-
 
 
 if __name__ == "__main__":

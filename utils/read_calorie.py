@@ -129,7 +129,7 @@ def load_calorie_json(path: str, pid: str) -> dict:
 
     result = {col: df[col].to_numpy() for col in df.columns}
     result["is_missing"] = False
-
+    breakpoint()
     return result
 
 

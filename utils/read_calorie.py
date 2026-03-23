@@ -37,7 +37,7 @@ def load_calorie_json(path: str, pid: str) -> dict:
             data = json.load(f)
     except Exception:
         return build_empty_sample(pid)
-    breakpoint()
+
     # 🔥 防御式
     header = data.get("header") or {}
     body = data.get("body") or {}
@@ -51,7 +51,7 @@ def load_calorie_json(path: str, pid: str) -> dict:
         or body.get("activity")
         or []
     )
-
+    breakpoint()
     # ❗空记录
     if not records:
         return build_empty_sample(pid)

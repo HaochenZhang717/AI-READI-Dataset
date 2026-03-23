@@ -18,6 +18,9 @@ def load_calorie_json(path: str) -> dict:
 
     header = data.get("header", {})
     body = data.get("body", {})
+
+    if "1142/1142_calorie.json" in path:
+        breakpoint()
     print(path)
     patient_id = header.get("patient_id", header.get("uuid", None))
     timezone = header.get("timezone", None)

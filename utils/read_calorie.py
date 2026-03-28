@@ -132,7 +132,6 @@ def load_calorie_json(path: str, pid: str) -> dict:
 
     result = {col: df[col].to_numpy() for col in df.columns}
     result["is_missing"] = False
-    breakpoint()
     return result
 
 
@@ -155,7 +154,6 @@ def save_calorie_to_parquet(split_ids, save_path):
             missing_count += 1
         else:
             exist_count += 1
-            breakpoint()
 
         result_list.append(sample)
 

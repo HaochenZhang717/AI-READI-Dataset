@@ -71,7 +71,6 @@ def load_calorie_json(path: str, pid: str) -> dict:
         # ===== 过滤非法 =====
         if t is None or calorie_val is None:
             continue
-        breakpoint()
         rows.append({
             "time": t,
             "calorie": calorie_val,

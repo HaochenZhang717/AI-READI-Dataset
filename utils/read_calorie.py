@@ -81,7 +81,7 @@ def load_calorie_json(path: str, pid: str) -> dict:
         })
 
 
-    breakpoint()
+
     # ❗过滤后为空
     if len(rows) == 0:
         return build_empty_sample(pid)

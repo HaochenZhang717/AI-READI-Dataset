@@ -179,13 +179,13 @@ def save_calorie_all():
     test_ids = df.loc[df["recommended_split"] == "test", "person_id"].tolist()
 
     print("train:", len(train_ids))
-    save_calorie_to_parquet(train_ids, "/playpen-shared/haochenz/AI-READI/calorie_train.parquet")
+    save_calorie_to_parquet(train_ids, "../AI-READI-processed/calorie_train.parquet")
 
     print("val:", len(val_ids))
-    save_calorie_to_parquet(val_ids, "/playpen-shared/haochenz/AI-READI/calorie_valid.parquet")
+    save_calorie_to_parquet(val_ids, "../AI-READI-processed/calorie_valid.parquet")
 
     print("test:", len(test_ids))
-    save_calorie_to_parquet(test_ids, "/playpen-shared/haochenz/AI-READI/calorie_test.parquet")
+    save_calorie_to_parquet(test_ids, "../AI-READI-processed/calorie_test.parquet")
 
 
 if __name__ == "__main__":

@@ -145,13 +145,13 @@ def save_glucose_to_parquet():
     test_ids = df.loc[df["recommended_split"] == "test", "person_id"].tolist()
 
     print("train:", len(train_ids))
-    save_to_parquet(train_ids, "/playpen-shared/haochenz/AI-READI/glucose_train.parquet")
+    save_to_parquet(train_ids, "../AI-READI-processed/glucose_train.parquet")
 
     print("val:", len(val_ids))
-    save_to_parquet(val_ids, "/playpen-shared/haochenz/AI-READI/glucose_valid.parquet")
+    save_to_parquet(val_ids, "../AI-READI-processed/glucose_valid.parquet")
 
     print("test:", len(test_ids))
-    save_to_parquet(test_ids, "/playpen-shared/haochenz/AI-READI/glucose_test.parquet")
+    save_to_parquet(test_ids, "../AI-READI-processed/glucose_test.parquet")
 
 
 if __name__ == "__main__":

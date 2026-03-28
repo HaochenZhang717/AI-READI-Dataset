@@ -58,25 +58,30 @@ def load_calorie_json(path: str, pid: str) -> dict:
     rows = []
 
     for r in records:
-        interval = (r.get("effective_time_frame") or {}).get("time_interval") or {}
-        t = interval.get("start_date_time", None)
 
-        cal = r.get("calorie_burned") or {}
+        # ===== 时间 =====
+        etf = r.get("effective_time_frame") or {}
+        t = etf.get("date_time", None)
+
+        # ===== calorie =====
+        cal = r.get("calories_value") or {}
         calorie_val = cal.get("value", None)
         calorie_unit = cal.get("unit", None)
 
+        # ===== 过滤非法 =====
         if t is None or calorie_val is None:
             continue
-
-
+        breakpoint()
         rows.append({
             "time": t,
             "calorie": calorie_val,
             "unit": calorie_unit,
-            "event_type": r.get("event_type", None),
+            "event_type": r.get("activity_name", None),  # 就用这个
             "source_device_id": r.get("source_device_id", None),
             "patient_id": patient_id,
         })
+
+
     breakpoint()
     # ❗过滤后为空
     if len(rows) == 0:
@@ -188,3 +193,7 @@ def save_calorie_all():
 
 if __name__ == "__main__":
     save_calorie_all()
+    # scp -r haochenz@unites3.cs.unc.edu:/playpen-shared/haochenz/AI-READI/glucose_test.parquet ./
+    # scp -r haochenz@unites3.cs.unc.edu:/playpen-shared/haochenz/AI-READI/glucose_train.parquet ./
+    # scp -r haochenz@unites3.cs.unc.edu:/playpen-shared/haochenz/AI-READI/glucose_valid.parquet ./
+

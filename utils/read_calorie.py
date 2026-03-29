@@ -160,6 +160,17 @@ def save_calorie_to_parquet(split_ids, save_path):
     print(f"Existing files: {exist_count}")
     print(f"Missing files: {missing_count}")
 
+    def fix_sample(sample):
+        sample["time_utc"] = sample["time_utc"].astype("datetime64[ns]").tolist()
+        sample["calorie"] = sample["calorie"].astype(float).tolist()
+        sample["unit"] = sample["unit"].tolist()
+        sample["event_type"] = sample["event_type"].tolist()
+        sample["source_device_id"] = sample["source_device_id"].tolist()
+        sample["patient_id"] = sample["patient_id"].tolist()
+        return sample
+
+    result_list = [fix_sample(x) for x in result_list]
+
     df = pd.DataFrame(result_list)
     df.to_parquet(save_path)
 

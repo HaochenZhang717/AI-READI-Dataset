@@ -90,7 +90,12 @@ def load_stress_json(path: str, pid: str) -> dict:
         if col in df.columns:
             df[col] = df[col].astype("string")
 
-    result = {col: df[col].to_numpy() for col in df.columns}
+    result = {}
+    for col in df.columns:
+        s = df[col]
+        if isinstance(s.dtype, pd.DatetimeTZDtype):
+            s = s.dt.tz_localize(None)
+        result[col] = s.to_numpy()
     result["is_missing"] = False
     return result
 
@@ -115,9 +120,9 @@ def save_stress_to_parquet(split_ids, save_path):
     print(f"Missing files: {missing_count}")
 
     def fix_sample(sample):
-        sample["time_utc"] = sample["time_utc"].astype("datetime64[ns]").tolist()
+        sample["time_utc"] = pd.to_datetime(sample["time_utc"]).tolist()
         if "time_local" in sample:
-            sample["time_local"] = sample["time_local"].astype("datetime64[ns]").tolist()
+            sample["time_local"] = pd.to_datetime(sample["time_local"]).tolist()
         sample["stress"] = sample["stress"].astype(float).tolist()
         sample["unit"] = sample["unit"].tolist()
         sample["patient_id"] = sample["patient_id"].tolist()

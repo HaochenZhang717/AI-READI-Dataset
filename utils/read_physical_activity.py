@@ -101,7 +101,12 @@ def load_physical_activity_json(path: str, pid: str) -> dict:
         if col in df.columns:
             df[col] = df[col].astype("string")
 
-    result = {col: df[col].to_numpy() for col in df.columns}
+    result = {}
+    for col in df.columns:
+        s = df[col]
+        if isinstance(s.dtype, pd.DatetimeTZDtype):
+            s = s.dt.tz_localize(None)
+        result[col] = s.to_numpy()
     result["is_missing"] = False
     return result
 
@@ -126,11 +131,11 @@ def save_physical_activity_to_parquet(split_ids, save_path):
     print(f"Missing files: {missing_count}")
 
     def fix_sample(sample):
-        sample["time_start_utc"] = sample["time_start_utc"].astype("datetime64[ns]").tolist()
-        sample["time_end_utc"] = sample["time_end_utc"].astype("datetime64[ns]").tolist()
+        sample["time_start_utc"] = pd.to_datetime(sample["time_start_utc"]).tolist()
+        sample["time_end_utc"] = pd.to_datetime(sample["time_end_utc"]).tolist()
         if "time_start_local" in sample:
-            sample["time_start_local"] = sample["time_start_local"].astype("datetime64[ns]").tolist()
-            sample["time_end_local"] = sample["time_end_local"].astype("datetime64[ns]").tolist()
+            sample["time_start_local"] = pd.to_datetime(sample["time_start_local"]).tolist()
+            sample["time_end_local"] = pd.to_datetime(sample["time_end_local"]).tolist()
         sample["steps"] = sample["steps"].astype(float).tolist()
         sample["unit"] = sample["unit"].tolist()
         sample["activity_name"] = sample["activity_name"].tolist()
